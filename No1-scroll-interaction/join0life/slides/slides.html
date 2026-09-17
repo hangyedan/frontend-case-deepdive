@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case No.1 — 스크롤 인터랙션 성능 딥다이브</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f4f6fa;
+    --fg: #16181d;
+    --fg-dim: #5b6270;
+    --accent: #2563eb;
+    --red: #dc2626;
+    --amber: #d97706;
+    --green: #16a34a;
+    --purple: #7c3aed;
+    --border: #e2e5ea;
+    --code-bg: #eef1f6;
+    --dt-scripting: #d9a520;
+    --dt-rendering: #8e5fd6;
+    --dt-painting: #3fa34d;
+    --dt-system: #8a8f99;
+    --dt-messaging: #2f9fd6;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    line-height: 1.5;
+  }
+  section.slide {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 80px 5vw 40px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h1 { font-size: 3.2rem; margin: 0 0 20px; line-height: 1.25; }
+  h2 { font-size: 2.3rem; margin: 0 0 20px; }
+  h3 { font-size: 1.3rem; color: var(--accent); margin: 0 0 10px; }
+  p { color: var(--fg-dim); font-size: 1.15rem; margin: 0 0 10px; }
+  ul { color: var(--fg-dim); font-size: 1.1rem; padding-left: 1.2em; margin: 8px 0; }
+  li { margin-bottom: 6px; }
+  code {
+    background: var(--code-bg);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.92em;
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin: 10px 0;
+  }
+  pre code { background: none; padding: 0; color: #1f2a3d; }
+  .slide-num {
+    position: absolute;
+    bottom: 18px;
+    right: 5vw;
+    font-size: 0.95rem;
+    color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .title-slide { justify-content: center; align-items: flex-start; }
+  .title-slide h1 { font-size: 3.6rem; max-width: 900px; }
+  .title-meta { color: var(--fg-dim); font-size: 1.2rem; margin-top: 6px; }
+
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cols-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  .pipeline-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  .pipeline-step {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 0.98rem;
+    font-family: "SF Mono", Menlo, monospace;
+    white-space: nowrap;
+  }
+  .pipeline-step.hot { border-color: var(--red); color: var(--red); }
+  .pipeline-arrow { color: var(--fg-dim); font-size: 1rem; }
+
+  .box {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .case-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    border-top: 3px solid var(--fg-dim);
+  }
+  .case-card.c1 { border-top-color: var(--red); }
+  .case-card.c2 { border-top-color: var(--amber); }
+  .case-card.c3 { border-top-color: var(--green); }
+  .case-card.c4 { border-top-color: var(--purple); }
+  .case-card h3 { color: var(--fg); font-size: 1.08rem; margin-bottom: 8px; }
+  .case-card .tag {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  .c1 .tag { background: rgba(220,38,38,0.12); color: var(--red); }
+  .c2 .tag { background: rgba(217,119,6,0.12); color: var(--amber); }
+  .c3 .tag { background: rgba(22,163,74,0.12); color: var(--green); }
+  .c4 .tag { background: rgba(124,58,237,0.12); color: var(--purple); }
+  .case-card p { font-size: 0.98rem; margin: 4px 0; }
+  .case-card code { font-size: 0.9rem; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 1.05rem;
+    margin-top: 12px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 13px;
+    text-align: left;
+  }
+  th { background: var(--bg-soft); color: var(--accent); font-size: 1rem; }
+  td.placeholder { color: var(--fg-dim); font-style: italic; }
+  td.best { color: var(--green); font-weight: 700; }
+  td.worst { color: var(--red); font-weight: 700; }
+
+  .swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .note {
+    margin-top: 12px;
+    background: rgba(37, 99, 235, 0.07);
+    border-left: 3px solid var(--accent);
+    padding: 12px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 1.02rem;
+    color: #1e3a5f;
+  }
+  .warn {
+    margin-top: 12px;
+    background: rgba(220, 38, 38, 0.07);
+    border-left: 3px solid var(--red);
+    padding: 12px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 1.02rem;
+    color: #7f1d1d;
+  }
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0; height: 3px;
+    background: var(--accent);
+    z-index: 999;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<!-- 0. 타이틀 -->
+<section class="slide title-slide">
+  <div class="kicker">한계단 딥다이브 스터디 · Case No.1</div>
+  <h1>스크롤 인터랙션 성능<br />— <code style="font-size:0.65em;">animation-timeline: view()</code> 딥다이브</h1>
+  <p class="title-meta">발표자: join0life</p>
+  <div class="slide-num">1 / 11</div>
+</section>
+
+<!-- 1. 구역 1-a: 문제 상황 + 렌더링 파이프라인 -->
+<section class="slide">
+  <h2>JS 스크롤 애니메이션의 원리와 한계</h2>
+  <h3>문제 상황</h3>
+  <ul>
+    <li>20개 이상 섹션, 스크롤 연동 애니메이션 → 60fps 아닌 20–30fps</li>
+    <li><code>scroll</code> 이벤트마다 <code>getBoundingClientRect()</code> 재계산</li>
+  </ul>
+  <h3 style="margin-top:16px;">렌더링 파이프라인</h3>
+  <div class="pipeline-strip">
+    <div class="pipeline-step">JS</div><span class="pipeline-arrow">→</span>
+    <div class="pipeline-step">Style</div><span class="pipeline-arrow">→</span>
+    <div class="pipeline-step hot">Layout</div><span class="pipeline-arrow">→</span>
+    <div class="pipeline-step">Paint</div><span class="pipeline-arrow">→</span>
+    <div class="pipeline-step">Composite</div>
+  </div>
+  <p>
+    <code>top</code>/<code>width</code>는 Layout(리플로우)을 강제 유발 — Style·Layout·Paint·JS 전부 <b>메인 스레드</b>에서 실행되어 서로 경합.<br/>
+    <code>transform</code>/<code>opacity</code>는 Layout·Paint를 생략하고 Composite(브라우저의 컴포지터 스레드)로 직행하지만, <b>이걸 계산하는 JS 자체는 여전히 메인 스레드</b>.
+  </p>
+  <div class="slide-num">2 / 11</div>
+</section>
+
+<!-- 2. 구역 1-b: Case1 vs Case2 코드 비교 -->
+<section class="slide">
+  <h2>Case 1 vs Case 2 — 속성만 바꾸면 될까?</h2>
+  <div class="cols-2">
+    <div class="case-card c1">
+      <span class="tag">CASE 1</span>
+      <h3>top/width + scroll 이벤트</h3>
+      <pre><code>card.style.top = `${40-p*40}px`;
+card.style.width = `${40+p*20}%`;</code></pre>
+      <p>JS→Style→<b style="color:var(--red);">Layout</b>→Paint→Composite 전부 메인 스레드</p>
+    </div>
+    <div class="case-card c2">
+      <span class="tag">CASE 2</span>
+      <h3>transform/opacity + scroll 이벤트</h3>
+      <pre><code>card.style.transform =
+  `translateY(${y}px) scale(${s})`;</code></pre>
+      <p>Layout/Paint는 생략되지만 <code>scroll</code>→JS→<code>getBoundingClientRect()</code>는 Case 1과 동일하게 메인 스레드</p>
+    </div>
+  </div>
+  <div class="note">
+    속성만 <code>transform</code>으로 바꿔도 Layout/Paint 비용은 줄지만, 매 스크롤마다 JS 콜백이 도는 구조 자체는 그대로 남는다 — "절반의 개선".
+  </div>
+  <div class="slide-num">3 / 11</div>
+</section>
+
+<!-- 3. 구역 2-a: view() vs scroll(), animation-range -->
+<section class="slide">
+  <h2>CSS 네이티브 스크롤 타임라인</h2>
+  <p>JS 이벤트 리스너 자체를 없애는 방법 — <code>animation</code> + <code>animation-timeline</code> + <code>animation-range</code></p>
+  <div class="cols-2" style="margin-top:10px;">
+    <div class="box">
+      <h3>view() vs scroll()</h3>
+      <p><code>scroll()</code>: 컨테이너 전체 스크롤량이 진행률</p>
+      <p><code>view()</code>: 요소 자신의 진입/노출 정도가 진행률 — 이번 케이스에 적합</p>
+      <p style="font-size:0.95rem; margin-top:10px;">Chrome/Edge 115(2023.07) → Safari 26(2025.09) → Firefox 안정 버전 미지원</p>
+    </div>
+    <div class="box">
+      <h3>animation-range</h3>
+      <pre style="font-size:0.9rem;"><code>animation-range:
+  entry 0% cover 40%;</code></pre>
+      <p><code>entry</code> 진입 중 · <code>cover</code> 전체 · <code>exit</code> 이탈 중</p>
+      <p style="font-size:0.95rem;">그 외 <code>contain</code>, <code>entry/exit-crossing</code>도 있음</p>
+    </div>
+  </div>
+  <div class="slide-num">4 / 11</div>
+</section>
+
+<!-- 4. 구역 2-b: 강점/약점 + 실무 주의사항 -->
+<section class="slide">
+  <h2>CSS 네이티브 타임라인 — 강점과 함정</h2>
+  <div class="cols-2">
+    <div class="box">
+      <h3>스크럽(Scrub) 제어란?</h3>
+      <p>애니메이션의 진행률이 "시간"이 아니라 <b>스크롤 위치</b>에 직접 묶이는 방식. 동영상 편집 타임라인의 스크러버 바를 손으로 앞뒤로 끄는 것과 같다 — 스크롤을 올리면 애니메이션도 정확히 되감긴다.</p>
+      <p><code>setTimeout</code>/<code>requestAnimationFrame</code>으로 "재생"시키는 일반 애니메이션과 달리, 유일한 입력값이 스크롤 위치라서 브라우저가 메인 스레드 개입 없이 컴포지터에서 바로 처리할 수 있다.</p>
+    </div>
+    <div class="box">
+      <h3>강점 / 약점</h3>
+      <p style="color:var(--green);">✓ 정밀한 스크럽 제어 (단일 요소, 1:1 매핑) — 우리 요구사항에 정확히 부합</p>
+      <p style="color:var(--red);">✗ 복잡한 오케스트레이션(다중 요소 의존, pin 고정, 조건 분기)은 어려움</p>
+    </div>
+  </div>
+  <div class="warn">
+    실무 주의사항: ① Firefox 미지원 → <code>@supports not (animation-timeline: view())</code> 폴백 필요
+    ② 조상에 <code>overflow: hidden</code>이 있으면 그 요소가 스크롤 컨테이너로 잡혀 타임라인이 멈춤 (실제로 겪은 버그)
+    ③ <code>animation-timeline</code>만 바꾼다고 성능이 자동 개선되지 않음 — 속성 선택은 별도 축 (→ 구역 4에서 실증)
+  </div>
+  <div class="slide-num">5 / 11</div>
+</section>
+
+<!-- 5. 구역 3-a: Performance 탭 읽는 법 — 개요 -->
+<section class="slide">
+  <h2>Performance 탭 읽는 법 — 개요</h2>
+  <p>녹화 버튼 → 페이지 조작 → 정지, 그 사이 브라우저가 내부적으로 한 일을 시간 순서대로 보여주는 도구.</p>
+  <div class="cols-3" style="margin-top:8px;">
+    <div class="box">
+      <h3>① 상단 타임라인</h3>
+      <p>CPU/NET 꺾은선 그래프 — 산 모양으로 튀는 구간이 그 순간 브라우저가 바빴다는 뜻.</p>
+      <p><code>Screenshots</code> 체크박스를 켜면 필름스트립(시점별 화면 미리보기)도 같이 기록됨.</p>
+    </div>
+    <div class="box">
+      <h3>② Frames 줄</h3>
+      <p>프레임 하나하나가 막대로 쌓임. 예산(60fps 기준 약 16.6ms)을 못 지킨 프레임은 빨간 표시로 드러남 — 실제 버벅임 지점.</p>
+    </div>
+    <div class="box">
+      <h3>③ 녹화 팁</h3>
+      <p>같은 스크롤 길이·속도로 케이스를 비교해야 공정함. 레코딩 길이가 다르면 ms보다 <b>비율(%)</b> 로 비교.</p>
+    </div>
+  </div>
+  <div class="slide-num">6 / 11</div>
+</section>
+
+<!-- 6. 구역 3-b: Main 스레드 플레임 차트 -->
+<section class="slide">
+  <h2>Performance 탭 읽는 법 — Main 스레드</h2>
+  <p>가장 중요한 줄. "메인 스레드라는 일꾼 한 명"이 시간 순서대로 무슨 일을 했는지 색깔로 보여준다.</p>
+  <table>
+    <thead>
+      <tr><th>색</th><th>카테고리</th><th>의미</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="swatch" style="background:var(--dt-scripting);"></span>Scripting</td><td>JS 코드 실행</td><td>스크롤 이벤트 핸들러, 계산 로직 등</td></tr>
+      <tr><td><span class="swatch" style="background:var(--dt-rendering);"></span>Rendering</td><td>레이아웃 계산</td><td>요소 위치·크기 다시 구하기 (리플로우)</td></tr>
+      <tr><td><span class="swatch" style="background:var(--dt-painting);"></span>Painting</td><td>픽셀 그리기</td><td>변경된 영역을 다시 래스터화</td></tr>
+      <tr><td><span class="swatch" style="background:var(--dt-system);"></span>System</td><td>브라우저 내부 작업</td><td>GC 등 — 테스트 대상과 무관한 노이즈일 때가 많음</td></tr>
+      <tr><td><span class="swatch" style="background:var(--dt-messaging);"></span>Messaging</td><td>스레드 간 통신</td><td>대체로 미미한 비중</td></tr>
+    </tbody>
+  </table>
+  <div class="note">막대가 세로로 길고 촘촘할수록 그 시간에 일이 많았다는 뜻. Case 1(top/width+JS)은 보라색(Rendering)이 유독 빽빽함 — 매 스크롤마다 레이아웃을 강제로 다시 계산하고 있다는 증거.</div>
+  <div class="slide-num">7 / 11</div>
+</section>
+
+<!-- 7. 구역 3-c: Thread pool/GPU + Summary + 실전 팁 -->
+<section class="slide">
+  <h2>Performance 탭 읽는 법 — GPU · Summary</h2>
+  <div class="cols-2">
+    <div class="box">
+      <h3>Thread pool / GPU 줄</h3>
+      <p>GPU 틱은 거의 매 프레임 일정하게 찍힌다 — 화면 합성은 애니메이션 방식과 무관하게 항상 일어나는 루틴이라, <b>틱의 밀도만으론 케이스 간 차이가 잘 안 보인다.</b></p>
+      <p><code>transform</code>이 절약해주는 건 "GPU를 더 굴린다"가 아니라 메인 스레드의 Layout/Paint 단계 자체를 스킵하는 것 — 그래서 진짜 비교는 GPU 줄이 아니라 Main 줄(Rendering/Painting 수치)로 해야 함.</p>
+    </div>
+    <div class="box">
+      <h3>Summary 탭</h3>
+      <p>녹화 전체 구간 동안 카테고리별 누적 시간을 합산해서 보여줌 — 케이스 비교에 가장 신뢰도 높은 숫자.</p>
+      <p>Rendering이 크면 → 레이아웃 트리거 속성 의심. Scripting이 크면 → 스크롤 리스너가 매 프레임 무거운 로직을 도는 중.</p>
+    </div>
+  </div>
+  <div class="slide-num">8 / 11</div>
+</section>
+
+<!-- 8. 구역 4-a: 4가지 구현 비교 카드 -->
+<section class="slide">
+  <h2>4가지 구현 비교</h2>
+  <div class="cols-4">
+    <div class="case-card c1">
+      <span class="tag">CASE 1</span>
+      <h3>top/width + JS</h3>
+      <p>메인 스레드 풀가동</p>
+      <p style="color:var(--red);">최악</p>
+    </div>
+    <div class="case-card c2">
+      <span class="tag">CASE 2</span>
+      <h3>transform + JS</h3>
+      <p>JS는 여전히 메인 스레드</p>
+      <p style="color:var(--amber);">절반의 개선</p>
+    </div>
+    <div class="case-card c3">
+      <span class="tag">CASE 3</span>
+      <h3>transform + CSS native</h3>
+      <p>메인 스레드 거의 미사용</p>
+      <p style="color:var(--green);">정답</p>
+    </div>
+    <div class="case-card c4">
+      <span class="tag">CASE 4</span>
+      <h3>top/width + CSS native</h3>
+      <p>Scripting↓, Rendering은 남음</p>
+      <p style="color:var(--purple);">보너스 실증</p>
+    </div>
+  </div>
+  <p style="margin-top:14px;">두 축은 서로 독립적으로 비용에 기여한다 — <b>속성(top/width vs transform)</b> 은 Rendering 비용을, <b>구동 방식(JS vs CSS native)</b> 은 Scripting 비용을 좌우.</p>
+  <div class="slide-num">9 / 11</div>
+</section>
+
+<!-- 9. 구역 4-b: 비교 표 + 결론 -->
+<section class="slide">
+  <h2>실측 비교 — Chrome DevTools Performance</h2>
+  <table>
+    <thead>
+      <tr><th>Case</th><th>Scripting</th><th>Rendering</th><th>Painting</th><th>System</th><th>메인스레드 점유율*</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1. top/width + JS</td><td>433 ms</td><td class="worst">446 ms</td><td>320 ms</td><td>410 ms</td><td class="worst">10.4%</td></tr>
+      <tr><td>2. transform + JS</td><td>390 ms</td><td>294 ms</td><td>221 ms</td><td>353 ms</td><td>7.8%</td></tr>
+      <tr><td>3. transform + CSS native</td><td class="best">179 ms</td><td class="best">150 ms</td><td class="best">200 ms</td><td class="worst">558 ms</td><td class="best">4.3%</td></tr>
+      <tr><td>4. top/width + CSS native</td><td>239 ms</td><td>405 ms</td><td>255 ms</td><td class="worst">610 ms</td><td>8.0%</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.92rem; margin-top:8px;">* (Scripting+Rendering+Painting) ÷ 녹화 길이(11.2~12.2s). 레코딩 길이가 케이스마다 달라 ms 대신 비율로 비교. System은 점유율 계산에서 제외(테스트와 무관한 GC/내부 처리 노이즈 포함).</p>
+  <div class="note">
+    System은 오히려 CSS native 케이스(3·4)에서 더 크다 — <code>animation-timeline: view()</code>가 매 프레임 진행률을 동기화하는 데 드는 구조적 고정비용(스레드 간 동기화, GC 등).
+    하지만 Case 3은 그 손해(System +148ms, Case1 대비)보다 <b>Scripting+Rendering+Painting에서 훨씬 크게 절약(-670ms)</b>하기 때문에, 총 메인스레드 점유율은 여전히 4개 중 가장 낮다(4.3%).
+  </div>
+  <div class="note">
+    결론: 속성 선택(transform/opacity 우선)이 먼저, 구동 방식(CSS native로 메인 스레드 비우기)이 그다음 —
+    두 축을 다 맞춰야 "메인 스레드 스크롤 처리" 문제가 근본적으로 해결됨. Firefox 미지원·overflow 함정은 별도 관리 필요.
+  </div>
+  <div class="slide-num">10 / 11</div>
+</section>
+
+<!-- 10. Q&A -->
+<section class="slide title-slide">
+  <div class="kicker">Thank you</div>
+  <h1>Q&amp;A</h1>
+  <p class="title-meta">데모 코드: No1-scroll-interaction/join0life/cases/</p>
+  <div class="slide-num">11 / 11</div>
+</section>
+
+<script>
+  window.addEventListener('scroll', () => {
+    const scrolled = document.documentElement.scrollTop;
+    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    document.getElementById('progress').style.width = `${(scrolled / height) * 100}%`;
+  });
+  document.addEventListener('keydown', (e) => {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const current = slides.findIndex((s) => {
+      const r = s.getBoundingClientRect();
+      return r.top >= -10 && r.top < window.innerHeight / 2;
+    });
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      slides[Math.min(current + 1, slides.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      slides[Math.max(current - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case 4 — top/width + CSS native (보너스)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Apple SD Gothic Neo", sans-serif;
+    background: #0e0e12;
+    color: #eee;
+  }
+  #fps-meter {
+    position: fixed; top: 12px; left: 12px; z-index: 999;
+    background: rgba(0,0,0,0.7); padding: 8px 14px; border-radius: 8px;
+    font-size: 14px; font-variant-numeric: tabular-nums;
+  }
+  #fps-meter b { color: #b98cff; }
+  .badge {
+    position: fixed; top: 12px; right: 12px; z-index: 999;
+    background: #b98cff; color: #1a002a; padding: 8px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 700;
+  }
+  #support-banner {
+    display: none;
+    position: sticky; top: 0; z-index: 998;
+    background: #ff5c5c; color: #1a0000; text-align: center;
+    padding: 10px; font-size: 0.9rem;
+  }
+  @supports not (animation-timeline: view()) {
+    #support-banner { display: block; }
+  }
+  .intro {
+    height: 90vh; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; padding: 24px;
+  }
+  .intro h1 { font-size: 1.8rem; margin-bottom: 12px; }
+  .intro p { max-width: 560px; line-height: 1.6; color: #aaa; }
+  .intro code { color: #d6bbff; }
+  .pipeline {
+    margin-top: 20px; font-size: 0.85rem; color: #b98cff;
+    background: rgba(185,140,255,0.1); padding: 10px 16px; border-radius: 8px;
+  }
+  .section {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    position: relative; border-top: 1px solid #222;
+  }
+  /* Case 3와 달리 overflow: hidden을 절대 넣지 않는다 — 넣는 순간 .section 자신이
+     "가장 가까운 스크롤 컨테이너"로 잡혀서 view() 타임라인이 진행되지 않는다. */
+
+  @keyframes reveal-layout-props {
+    from { top: 40px; width: 40%; opacity: 0.3; }
+    to   { top: 0px;  width: 60%; opacity: 1;   }
+  }
+
+  .card {
+    position: relative;
+    width: 40%;
+    height: 200px;
+    background: linear-gradient(135deg, #b98cff, #e0c8ff);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #1a002a;
+
+    animation: reveal-layout-props linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+</style>
+</head>
+<body>
+
+<div id="support-banner">
+  ⚠️ 이 브라우저는 <code>animation-timeline: view()</code>를 지원하지 않습니다.
+  (Chrome/Edge 115+, Safari 26+에서 확인해주세요.)
+</div>
+
+<div class="badge">CASE 4 (보너스) — top/width + CSS native</div>
+<div id="fps-meter">FPS: <b id="fps-value">--</b></div>
+
+<div class="intro">
+  <h1>Case 4 — top/width + animation-timeline: view()</h1>
+  <p>
+    Case 3와 마찬가지로 JS 스크롤 로직은 전혀 없습니다. 다만 애니메이션 속성을 일부러
+    <code>top</code>/<code>width</code>로 남겨뒀습니다. <b>CSS 네이티브 타임라인으로 바꿔도
+    레이아웃을 유발하는 속성을 쓰면 여전히 Layout/Paint 비용이 발생하는지</b> 확인하기 위한
+    보너스 케이스입니다.
+  </p>
+  <div class="pipeline">브라우저가 직접 계산 → Style → Layout → Paint → Composite (JS는 없지만 Layout/Paint는 남음)</div>
+</div>
+
+<script>
+  const SECTION_COUNT = 24;
+  for (let i = 0; i < SECTION_COUNT; i++) {
+    const section = document.createElement('section');
+    section.className = 'section';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = `Section ${i + 1}`;
+    section.appendChild(card);
+    document.body.appendChild(section);
+  }
+
+  const fpsValueEl = document.getElementById('fps-value');
+  let frames = 0;
+  let lastTime = performance.now();
+  function measureFps(now) {
+    frames++;
+    if (now - lastTime >= 500) {
+      const fps = Math.round((frames * 1000) / (now - lastTime));
+      fpsValueEl.textContent = fps;
+      fpsValueEl.style.color = fps < 45 ? '#ff5c5c' : '#5cff8f';
+      frames = 0;
+      lastTime = now;
+    }
+    requestAnimationFrame(measureFps);
+  }
+  requestAnimationFrame(measureFps);
+</script>
+
+</body>
+</html>
