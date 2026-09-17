@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case 1 — top/width + JS scroll</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Apple SD Gothic Neo", sans-serif;
+    background: #0e0e12;
+    color: #eee;
+  }
+  #fps-meter {
+    position: fixed; top: 12px; left: 12px; z-index: 999;
+    background: rgba(0,0,0,0.7); padding: 8px 14px; border-radius: 8px;
+    font-size: 14px; font-variant-numeric: tabular-nums;
+  }
+  #fps-meter b { color: #ff5c5c; }
+  .badge {
+    position: fixed; top: 12px; right: 12px; z-index: 999;
+    background: #ff5c5c; color: #1a0000; padding: 8px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 700;
+  }
+  .intro {
+    height: 90vh; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; padding: 24px;
+  }
+  .intro h1 { font-size: 1.8rem; margin-bottom: 12px; }
+  .intro p { max-width: 560px; line-height: 1.6; color: #aaa; }
+  .intro code { color: #ff9c9c; }
+  .pipeline {
+    margin-top: 20px; font-size: 0.85rem; color: #ff5c5c;
+    background: rgba(255,92,92,0.1); padding: 10px 16px; border-radius: 8px;
+  }
+  .section {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    position: relative; border-top: 1px solid #222;
+  }
+  .card {
+    position: relative;
+    width: 40%;
+    top: 40px;
+    height: 200px;
+    background: linear-gradient(135deg, #ff5c5c, #ff9c5c);
+    border-radius: 16px;
+    opacity: 0.3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #1a0000;
+  }
+</style>
+</head>
+<body>
+
+<div class="badge">CASE 1 — top/width + JS</div>
+<div id="fps-meter">FPS: <b id="fps-value">--</b></div>
+
+<div class="intro">
+  <h1>Case 1 — top/width 직접 변경 + scroll 이벤트</h1>
+  <p>
+    <code>scroll</code> 이벤트마다 <code>getBoundingClientRect()</code>로 위치를 계산하고,
+    <code>style.top</code> / <code>style.width</code>를 직접 바꿉니다.
+    24개 섹션 전체가 이 방식으로 동작합니다.
+  </p>
+  <div class="pipeline">JS → Style → Layout → Paint → Composite (전 단계 메인 스레드)</div>
+</div>
+
+<script>
+  const SECTION_COUNT = 24;
+  for (let i = 0; i < SECTION_COUNT; i++) {
+    const section = document.createElement('section');
+    section.className = 'section';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = `Section ${i + 1}`;
+    section.appendChild(card);
+    document.body.appendChild(section);
+  }
+
+  const cards = Array.from(document.querySelectorAll('.card'));
+
+  function onScroll() {
+    const vh = window.innerHeight;
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const progress = Math.min(Math.max((vh - rect.top) / (vh + rect.height), 0), 1);
+      card.style.top = `${40 - progress * 40}px`;
+      card.style.width = `${40 + progress * 20}%`;
+      card.style.opacity = progress;
+    });
+  }
+  window.addEventListener('scroll', onScroll);
+  onScroll();
+
+  const fpsValueEl = document.getElementById('fps-value');
+  let frames = 0;
+  let lastTime = performance.now();
+  function measureFps(now) {
+    frames++;
+    if (now - lastTime >= 500) {
+      const fps = Math.round((frames * 1000) / (now - lastTime));
+      fpsValueEl.textContent = fps;
+      fpsValueEl.style.color = fps < 45 ? '#ff5c5c' : '#5cff8f';
+      frames = 0;
+      lastTime = now;
+    }
+    requestAnimationFrame(measureFps);
+  }
+  requestAnimationFrame(measureFps);
+</script>
+
+</body>
+</html>

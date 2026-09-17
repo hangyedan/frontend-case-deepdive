@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case 3 — transform/opacity + CSS native</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Apple SD Gothic Neo", sans-serif;
+    background: #0e0e12;
+    color: #eee;
+  }
+  #fps-meter {
+    position: fixed; top: 12px; left: 12px; z-index: 999;
+    background: rgba(0,0,0,0.7); padding: 8px 14px; border-radius: 8px;
+    font-size: 14px; font-variant-numeric: tabular-nums;
+  }
+  #fps-meter b { color: #5cff8f; }
+  .badge {
+    position: fixed; top: 12px; right: 12px; z-index: 999;
+    background: #5cff8f; color: #002a0f; padding: 8px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 700;
+  }
+  #support-banner {
+    display: none;
+    position: sticky; top: 0; z-index: 998;
+    background: #ff5c5c; color: #1a0000; text-align: center;
+    padding: 10px; font-size: 0.9rem;
+  }
+  @supports not (animation-timeline: view()) {
+    #support-banner { display: block; }
+  }
+  .intro {
+    height: 90vh; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; text-align: center; padding: 24px;
+  }
+  .intro h1 { font-size: 1.8rem; margin-bottom: 12px; }
+  .intro p { max-width: 560px; line-height: 1.6; color: #aaa; }
+  .intro code { color: #a0ffc0; }
+  .pipeline {
+    margin-top: 20px; font-size: 0.85rem; color: #5cff8f;
+    background: rgba(92,255,143,0.1); padding: 10px 16px; border-radius: 8px;
+  }
+  .section {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    position: relative; border-top: 1px solid #222;
+  }
+
+  @keyframes reveal-transform {
+    from { transform: translateY(60px) scale(0.8); opacity: 0.3; }
+    to   { transform: translateY(0)    scale(1);   opacity: 1;   }
+  }
+
+  .card {
+    width: 320px;
+    height: 200px;
+    background: linear-gradient(135deg, #5cff8f, #8affc4);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #002a0f;
+    will-change: transform, opacity;
+
+    animation: reveal-transform linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+</style>
+</head>
+<body>
+
+<div id="support-banner">
+  ⚠️ 이 브라우저는 <code>animation-timeline: view()</code>를 지원하지 않습니다.
+  (Chrome/Edge 115+, Safari 26+에서 확인해주세요.)
+</div>
+
+<div class="badge">CASE 3 — transform/opacity + CSS native</div>
+<div id="fps-meter">FPS: <b id="fps-value">--</b></div>
+
+<div class="intro">
+  <h1>Case 3 — transform/opacity + animation-timeline: view()</h1>
+  <p>
+    JS는 FPS 측정 코드 외엔 전혀 없습니다. <code>scroll</code> 이벤트, <code>getBoundingClientRect()</code> 모두 제거하고
+    <code>@keyframes</code> + <code>animation-timeline: view()</code> + <code>animation-range</code>만으로 진행률을 계산합니다.
+  </p>
+  <div class="pipeline">브라우저가 직접 계산 → Composite(컴포지터 스레드) — 메인 스레드 개입 없음</div>
+</div>
+
+<script>
+  const SECTION_COUNT = 24;
+  for (let i = 0; i < SECTION_COUNT; i++) {
+    const section = document.createElement('section');
+    section.className = 'section';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = `Section ${i + 1}`;
+    section.appendChild(card);
+    document.body.appendChild(section);
+  }
+
+  // --- FPS 측정 (애니메이션 로직과 무관, 다른 케이스 파일과 동일한 측정 코드) ---
+  const fpsValueEl = document.getElementById('fps-value');
+  let frames = 0;
+  let lastTime = performance.now();
+  function measureFps(now) {
+    frames++;
+    if (now - lastTime >= 500) {
+      const fps = Math.round((frames * 1000) / (now - lastTime));
+      fpsValueEl.textContent = fps;
+      fpsValueEl.style.color = fps < 45 ? '#ff5c5c' : '#5cff8f';
+      frames = 0;
+      lastTime = now;
+    }
+    requestAnimationFrame(measureFps);
+  }
+  requestAnimationFrame(measureFps);
+</script>
+
+</body>
+</html>
